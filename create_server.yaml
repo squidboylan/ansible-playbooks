@@ -1,7 +1,7 @@
 ---
 - hosts: localhost
-  vars:
-    private_key: ~/.ssh/id_rsa
+  vars_files:
+    - vars/vars.yaml
 
   # List of tasks
   tasks:
@@ -9,16 +9,13 @@
 
       # This lets us define an server
       os_server:
-
-        # Cloud authentication information
-        cloud: dreamcompute
-
+        cloud: "{{ cloud }}"
         # VM details
         state: present
         name: ansible_vm1
         image: Ubuntu-16.04
-        key_name: abathur
         flavor: 50
+        key_name: "{{ key_name }}"
         network: public
         wait: yes
         meta:
@@ -36,11 +33,13 @@
     - set_fact: public_v4="{{ ansible_vm1.server.public_v4 }}"
 
     - name: add the server to our ansible inventory
-      add_host: hostname={{  public_v4 }} groups=foo ansible_ssh_user=dhc-user ansible_ssh_private_key_file={{ private_key }}
+      add_host: hostname={{ public_v4 }} groups=foo ansible_ssh_user=dhc-user ansible_ssh_private_key_file={{ private_key }}
+
+    - name: pause and wait for sshd to start
+      pause: seconds=15
 
 - hosts: foo
   gather_facts: no
   tasks:
     - name: Install python2.7
       raw: "sudo apt-get update -qq && sudo apt-get install -qq python"
-

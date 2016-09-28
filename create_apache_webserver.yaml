@@ -17,7 +17,7 @@
         state: present
         name: ansible_vm1
         image: Ubuntu-16.04
-        key_name: abathur
+        key_name: raynor
         flavor: 50
         network: public
         wait: yes

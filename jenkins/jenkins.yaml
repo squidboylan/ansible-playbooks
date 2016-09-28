@@ -7,13 +7,13 @@
   tasks:
     - name: Create a security group
       os_security_group:
-        cloud: dreamcompute
+        cloud: "{{ cloud }}"
         name: web
         state: present
 
     - name: Create a security group rules 8080
       os_security_group_rule:
-        cloud: dreamcompute
+        cloud: "{{ cloud }}"
         security_group: web
         state: present
         protocol: tcp
@@ -27,13 +27,13 @@
       os_server:
 
         # Cloud authentication information
-        cloud: dreamcompute
+        cloud: "{{ cloud }}"
 
         # VM details
         state: present
         name: jenkins_server
         image: Ubuntu-16.04
-        key_name: abathur
+        key_name: "{{ key_name }}"
         flavor: 100
         network: public
         wait: yes
@@ -44,7 +44,7 @@
 
     - name: get facts about the server (including its public v4 IP address)
       os_server_facts:
-        cloud: dreamcompute
+        cloud: "{{ cloud }}"
         server: jenkins_server
       until: jenkins_server.server.public_v4 != ""
       retries: 5
@@ -61,7 +61,7 @@
     - name: Install python2.7
       raw: "sudo apt-get update -qq && sudo apt-get install -qq python"
 
-- hosts: jenkins 
+- hosts: jenkins
   tasks:
     - name: add jenkins key
       become: True

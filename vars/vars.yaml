@@ -1,0 +1,3 @@
+cloud: dreamcompute
+key_name: raynor
+private_key: ~/.ssh/id_rsa
