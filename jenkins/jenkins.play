@@ -1,0 +1,87 @@
+---
+- hosts: localhost
+  vars:
+    private_key: ~/.ssh/id_rsa
+
+  # List of tasks
+  tasks:
+    - name: Create a security group
+      os_security_group:
+        cloud: dreamcompute
+        name: web
+        state: present
+
+    - name: Create a security group rules 8080
+      os_security_group_rule:
+        cloud: dreamcompute
+        security_group: web
+        state: present
+        protocol: tcp
+        port_range_min: 8080
+        port_range_max: 8080
+        wait: yes
+
+    - name: launch an Ubuntu server
+
+      # This lets us define an server
+      os_server:
+
+        # Cloud authentication information
+        cloud: dreamcompute
+
+        # VM details
+        state: present
+        name: jenkins_server
+        image: Ubuntu-16.04
+        key_name: abathur
+        flavor: 100
+        network: public
+        wait: yes
+        security_groups:
+          - web
+          - default
+      register: jenkins_server
+
+    - name: get facts about the server (including its public v4 IP address)
+      os_server_facts:
+        cloud: dreamcompute
+        server: jenkins_server
+      until: jenkins_server.server.public_v4 != ""
+      retries: 5
+      delay: 10
+
+    - set_fact: public_v4="{{ jenkins_server.server.public_v4 }}"
+
+    - name: add the server to our ansible inventory
+      add_host: hostname={{  public_v4 }} groups=jenkins ansible_ssh_user=dhc-user ansible_ssh_private_key_file={{ private_key }}
+
+- hosts: jenkins
+  gather_facts: no
+  tasks:
+    - name: Install python2.7
+      raw: "sudo apt-get update -qq && sudo apt-get install -qq python"
+
+- hosts: jenkins 
+  tasks:
+    - name: add jenkins key
+      become: True
+      become_user: root
+      apt_key: url=https://pkg.jenkins.io/debian/jenkins-ci.org.key state=present
+    - name: add jenkins repo
+      become: True
+      become_user: root
+      copy: content="deb http://pkg.jenkins.io/debian-stable binary/" dest=/etc/apt/sources.list.d/jenkins.list
+    - name: Install jenkins
+      become: True
+      become_user: root
+      apt: update_cache=yes name=jenkins
+    - name: Add iptables rule to forward port 80 to 8080
+      become: True
+      become_user: root
+      iptables:
+        table: nat
+        chain: PREROUTING
+        protocol: tcp
+        destination_port: 8080
+        source_port: 80
+        jump: REDIRECT

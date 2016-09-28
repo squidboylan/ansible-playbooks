@@ -1,0 +1,71 @@
+---
+- hosts: localhost
+  vars:
+    private_key: ~/.ssh/id_rsa
+
+  # List of tasks
+  tasks:
+    - name: launch an Ubuntu server
+
+      # This lets us define an server
+      os_server:
+
+        # Cloud authentication information
+        cloud: dreamcompute
+
+        # VM details
+        state: present
+        name: ansible_vm1
+        image: Ubuntu-16.04
+        key_name: abathur
+        flavor: 50
+        network: public
+        wait: yes
+        meta:
+          hostname: vm1
+      register: ansible_vm1
+
+    - name: get facts about the server (including its public v4 IP address)
+      os_server_facts:
+        cloud: dreamcompute
+        server: ansible_vm1
+      until: ansible_vm1.server.public_v4 != ""
+      retries: 5
+      delay: 10
+
+    - set_fact: public_v4="{{ ansible_vm1.server.public_v4 }}"
+
+    - name: add the server to our ansible inventory
+      add_host: hostname={{  public_v4 }} groups=apache ansible_ssh_user=dhc-user ansible_ssh_private_key_file={{ private_key }}
+
+- hosts: apache
+  gather_facts: no
+  tasks:
+    - name: Install python2.7
+      raw: "sudo apt-get update -qq && sudo apt-get install -qq python"
+
+- hosts: apache
+  tasks:
+    - name: Install apache2
+      become_user: root
+      become: True
+      apt: name={{ item }} state=latest update_cache=yes
+      with_items:
+        - apache2
+
+    - name: delete default apache2 configs
+      become_user: root
+      become: True
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+      - /etc/apache2/sites-available/000-default.conf
+      - /etc/apache2/sites-available/default-ssl.conf
+      - /etc/apache2/sites-enabled/000-default.conf
+      - /etc/apache2/sites-enabled/default-ssl.conf
+
+    - name: configure apache
+      become_user: root
+      become: True
+      copy: content="derp" dest=/etc/apache2/sites-available/derp.conf
